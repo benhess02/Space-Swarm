@@ -58,17 +58,21 @@ class SpaceSwarm extends Phaser.Scene {
     
     titleText;
     pressSpaceText;
+    healthText;
 
     wave = 0;
     remainingInWave = 5;
 
     character;
+    health = -1;
     lazers = [];
     aKey; dKey; spaceKey;
     canShoot = true;
     canShootTimeout;
 
     spawnInterval;
+    enemyTexture;
+    firingChance;
     enemies = [];
     enemyLazers = [];
 
@@ -108,7 +112,7 @@ class SpaceSwarm extends Phaser.Scene {
                 x = 875;
             }
             var enemy = {
-                sprite: this.add.follower(new Phaser.Curves.Spline([]), x, 120, "spritesheet", "enemyRed1.png"),
+                sprite: this.add.follower(new Phaser.Curves.Spline([]), x, 120, "spritesheet", this.enemyTexture),
                 shootInterval: null,
                 moveTimeout: null
             };
@@ -118,7 +122,7 @@ class SpaceSwarm extends Phaser.Scene {
                 if(this.wave == 0) {
                     return;
                 }
-                if(Math.random() < 0.5 && Math.abs(enemy.sprite.x - this.character.x) < 100) {
+                if(Math.random() < this.firingChance && Math.abs(enemy.sprite.x - this.character.x) < 100) {
                     var lazer = this.add.sprite(enemy.sprite.x, enemy.sprite.y + 20, "spritesheet", "laserRed01.png");
                     lazer.rotation = Math.PI;
                     this.sound.play("laser2");
@@ -129,8 +133,17 @@ class SpaceSwarm extends Phaser.Scene {
     }
 
     setupWave() {
-        while(this.enemies.length > 0) {
-            this.deleteEnemy(this.enemies[0]);
+        if(this.wave <= 1) {
+            this.remainingInWave = 0;
+            while(this.enemies.length > 0) {
+                this.deleteEnemy(this.enemies[0]);
+            }
+            while(this.lazers.length > 0) {
+                this.lazers.pop().destroy();
+            }
+            while(this.enemyLazers.length > 0) {
+                this.enemyLazers.pop().destroy();
+            }
         }
         if(this.wave == 0) {
             this.character.x = 500;
@@ -143,7 +156,7 @@ class SpaceSwarm extends Phaser.Scene {
             this.character.x = 500;
             this.titleText = this.add.text(260, 200, "Game Over", { fontFamily: "VT323", fontSize: 120, color: "red" });
             this.titleText.depth = 1;
-            this.pressSpaceText = this.add.text(300, 500, "Press SPACE to play again...", { fontFamily: "VT323", fontSize: 48 });
+            this.pressSpaceText = this.add.text(250, 500, "Press SPACE to play again...", { fontFamily: "VT323", fontSize: 48 });
             this.pressSpaceText.depth = 1;
         }
         else if(this.wave == -2) {
@@ -157,9 +170,36 @@ class SpaceSwarm extends Phaser.Scene {
             this.titleText.destroy();
             this.pressSpaceText.destroy();
         }
-        if(this.wave == 0 || this.wave == 1) {
+        if(this.wave == 0) {
             this.remainingInWave = 5;
+            this.enemyTexture = "enemyGreen1.png";
+        } else if(this.wave == 1) {
+            this.remainingInWave = 5;
+            this.enemyTexture = "enemyGreen1.png";
+            this.firingChance = 0.5;
+            this.setHealth(100);
+        } else if(this.wave == 2) {
+            this.remainingInWave = 5;
+            this.firingChance = 0.8;
+            this.enemyTexture = "enemyBlue1.png";
+        } else if(this.wave == 3) {
+            this.remainingInWave = 8;
+            this.firingChance = 0.8;
+            this.enemyTexture = "enemyRed1.png";
+        } else if(this.wave == 4) {
+            this.remainingInWave = 10;
+            this.firingChance = 1;
+            this.enemyTexture = "enemyBlack1.png";
         }
+    }
+
+    setHealth(health) {
+        this.health = Math.max(health, 0);
+        if(!this.healthText) {
+            this.healthText = this.add.text(20, 20, "", { fontFamily: "VT323", fontSize: 48, color: "red" });
+            this.healthText.depth = 1;
+        }
+        this.healthText.text = "Health: " + this.health.toString();
     }
 
     moveEnemy(enemy) {
@@ -211,7 +251,7 @@ class SpaceSwarm extends Phaser.Scene {
         }
         setTimeout(() => {
             this.wave += 1;
-            if(this.wave > 1) {
+            if(this.wave > 4) {
                 this.wave = -2;
             }
             this.setupWave();
@@ -254,6 +294,12 @@ class SpaceSwarm extends Phaser.Scene {
             this.enemyLazers[i].y += LAZER_SPEED;
             if(this.ellipticalCollision(this.enemyLazers[i], 1, this.character, 0.8)) {
                 hit = true;
+                this.sound.play("explosion");
+                this.setHealth(this.health - 10);
+                if(this.health == 0) {
+                    this.wave = -1;
+                    this.setupWave();
+                }
             }
             if(this.enemyLazers[i].y - (this.enemyLazers[i].height / 2) > this.game.config.height) {
                 hit = true;
